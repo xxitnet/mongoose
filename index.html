@@ -26,10 +26,10 @@ console.log(&#39;连接成功&#39;);
 </code></pre><h2 id="-schema">四、Schema</h2>
 <p>Schema可以理解为传统数据的&quot;表结构&quot;，在mongodb中就是集合的&quot;骨架&quot;,定义了个集合中有哪些字段</p>
 <pre><code>var userSchema = new mongoose.Schema({
-name:{String},
-password:{String}
-regTime:{Date,default:new Date()},
-gender:{Boolean,default:true}
+name:{type:String},
+password:{type:String}
+regTime:{type:Date,default:new Date()},
+gender:{type:Boolean,default:true}
 });
 </code></pre><h2 id="-model">五、Model</h2>
 <p>Model是由Schema生成的模型，除了有集合的骨架外，还有操作数据库的能力</p>
@@ -69,12 +69,12 @@ if(!err)console.log(&#39;add success&#39;)
 </code></pre><h2 id="-">九、更新数据</h2>
 <pre><code>//第一个参数：更新的条件
 //第二个参数：更新后的值
-//第三个参数：是否更新全部匹配的条件
+//第三个参数：multi:是否更新全部匹配的条件  upsert:没有匹配条件是否插入数据
 //result:返回的是一个类似{ ok: 1, nModified: 3, n: 4 }对象，通过这个对象可以知道更新了多少数据
 UserModel.update({name:&#39;abc&#39;},{$set:{password:&#39;abcdefg&#39;}},{multi:true},function(err,result){
 if(!err)console.log(result)
 )
-</code></pre><h2 id="-">十、数据库查询</h2>
+</code></pre><h2 id="-">十、数据库查询---精确匹配</h2>
 <h3 id="1-">1. 查询所有匹配</h3>
 <pre><code>//第一个参数：查询的条件,默认值是{},查询所有
 //第二个参数：需要显示的字段，默认是{},显示文档的所有字段,属性为1的字段会显示，其余的不会显示,_id默认会显示，可以设置_id:0
@@ -86,18 +86,101 @@ UserModel.find({name:&#39;lisi&#39;}，{},function(err,docs){
 <pre><code>//第一个参数：查询的条件,默认值是{},查询所有
 //第二个参数：需要显示的字段，默认是{},显示文档的所有字段,属性为1的字段会显示，其余的不会显示,_id默认会显示，可以设置_id:0
 //doc:查询到的文档
-UserModel.find({name:&#39;lisi&#39;}，{},function(err,doc){
+UserModel.findOne({name:&#39;lisi&#39;}，{},function(err,doc){
     if(!err)console.log(doc);
 })
 </code></pre><h3 id="3-id-">3. 根据id查询</h3>
-<p>```
-//第一个参数：查询_id,js中没有ObjectId类型，可以传递一个字符串或者数字，是一个语法糖
+<pre><code>//第一个参数：查询_id,js中没有ObjectId类型，可以传递一个字符串或者数字，是一个语法糖
 //第二个参数：需要显示的字段，默认是{},显示文档的所有字段,属性为1的字段会显示，其余的不会显示,_id默认会显示，可以设置_id:0
 //doc:查询到的文档
-UserModel.findById(6，{},function(err,doc){
+UserModel.findById(6,{},function(err,doc){
     if(!err)console.log(doc);
-})</p>
+})
+</code></pre><h2 id="-">十一、条件查询</h2>
+<h3 id="1-gt-gte-">1. $gt、$gte   相当于&gt;、&gt;=</h3>
+<pre><code>UserModel.find({age:{$gt:18}},function(err,docs){
+console.log(docs)
+})
+</code></pre><h3 id="2-lt-lte-">2. $lt、$lte   相当于&lt;、&lt;=</h3>
+<pre><code>UserModel.find({age:{$lt:18}},function(err,docs){
+console.log(docs)
+})
+</code></pre><h3 id="3-ne-">3. $ne   相当于!=</h3>
+<pre><code>UserModel.find({age:{$ne:18}},function(err,docs){
+console.log(docs)
+})
+</code></pre><h3 id="3-in-nin-">3. $in、$nin   匹配在某个范围（不再某个范围）</h3>
+<pre><code>UserModel.find({age:{$in:[15,68]}},function(err,docs){
+console.log(docs)
+})
+</code></pre><h3 id="4-exists-null">4. $exists  匹配某个字段是否存在，长用来检测null</h3>
+<pre><code>///由于{age:null}不仅会匹配age=null，还会匹配没有age字段的文档
+UserModel.find({age:{$in:[null],$exists:true}},function(err,docs){
+console.log(docs)
+})
+</code></pre><h3 id="5-or-">5. $or 满足其中一个条件</h3>
+<pre><code>UserModel.find({$or:[{age:{$lt:18}},{age:{$gt:60}}]},function(err,docs){
+console.log(docs)
+})
+</code></pre><h2 id="-querybuilder">十二、queryBuilder</h2>
+<p>当遇到比较复杂的查询时，可以把多个查询条件分成几个步骤来分开查询，类似于链式查询</p>
+<pre><code>///在执行exec前，前面的查询并没有开始，只有执行exec的时候才会执行
+var UserModel.where(&#39;age&#39;).gte(18).lte(60).sort({age:-1}).exec(function(err,docs){
+console.log(docs)
+})
 
+UserModel.where(&#39;age&#39;).gte(38).or({age:{$lte:70}}).exec(function(err,docs){
+console.log(docs)
+})
+</code></pre><h2 id="-">十三、聚合函数</h2>
+<h3 id="1-count-">1.  count   查询有多少个文档匹配</h3>
+<pre><code>UserModel.count({age:18},function(err,count){
+console.log(count)
+})
+</code></pre><h3 id="2-distinct-">2. distinct  查询满足条件的文件并根据键分组的结果返回键分组的数组</h3>
+<pre><code>//查找age&gt;=18的文档，然后根据age分组，并把存储分组后的所有age作为数组返回
+UserModel.distinct(&#39;age&#39;,{age:{$gte:18}},function(err,ary){
+console.log(ary)
+})
+</code></pre><h2 id="-">十四、游标查询</h2>
+<h3 id="1-limit-num-num-">1. limit(num)   从结果集中取出num条数据</h3>
+<pre><code>UserModel.find({age:18},{},{limit:2},function(err,docs){
+console.log(docs)
+})
+
+UserModel.find({age:18}).limit(2).exec(function(err,docs){
+console.log(docs)
+})
+</code></pre><h3 id="2-skip-num-num-">2. skip(num)   跳过结果集中的前num条</h3>
+<pre><code>UserModel.find({age:18},{},{skip:2},function(err,docs){
+console.log(docs)
+})
+
+UserModel.find({age:18}).skip(2).exec(function(err,docs){
+console.log(docs)
+})
+</code></pre><h3 id="3-sort-age-1-">3. sort({age:-1})</h3>
+<pre><code>UserModel.find({age:18},{},{sort:{age:-1}},function(err,docs){
+console.log(docs)
+})
+
+UserModel.find({age:18}).sort({age:-1}).exec(function(err,docs){
+console.log(docs)
+})
+</code></pre><h2 id="-where">十五、$where</h2>
+<p>查询时，如果需要用javascript表达式好进行匹配，那么可以使用#where</p>
+<pre><code>UserModel.find({$where:&#39;this.age==18&#39;},function(err,docs){
+console.log(docs)
+})
+
+UserModel.$where(&quot;this.age==18&quot;).exec(function(err,docs){
+console.log(docs)
+})
+
+UserModel.where(&#39;age&#39;).equals(18).exec(function(err,docs){
+console.log(docs)
+})
+</code></pre>
 </body>
 </html>
      
